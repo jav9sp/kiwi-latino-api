@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PostModule {
+  HOUSING
+  JOBS
+  MARKETPLACE
+  TRIPS
+  COMMUNITY
+}
+
+enum PostStatus {
+  ACTIVE
+  CLOSED
+  DELETED
+}
+
+enum TripStatus {
+  OPEN
+  FULL
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String
+  name           String
+  countryOrigin  String?
+  cityNz         String?
+  avatarUrl      String?
+  bio            String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  posts          Post[]
+  tripsCreated   Trip[]
+  tripBookings   TripBooking[]
+  sentMessages   Message[]     @relation("SentMessages")
+  receivedMessages Message[]   @relation("ReceivedMessages")
+  reports        Report[]
+  refreshTokens  RefreshToken[]
+
+  @@map("users")
+}
+
+model Post {
+  id          String      @id @default(cuid())
+  userId      String
+  module      PostModule
+  title       String
+  description String
+  city        String
+  price       Float?
+  currency    String?     @default("NZD")
+  images      String[]
+  status      PostStatus  @default(ACTIVE)
+  contactInfo String?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    Message[]
+  reports     Report[]
+
+  @@index([module, city, status])
+  @@index([userId])
+  @@map("posts")
+}
+
+model Trip {
+  id              String      @id @default(cuid())
+  userId          String
+  origin          String
+  destination     String
+  departureDate   DateTime
+  seatsTotal      Int
+  seatsAvailable  Int
+  costPerPerson   Float?
+  currency        String?     @default("NZD")
+  notes           String?
+  status          TripStatus  @default(OPEN)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings        TripBooking[]
+
+  @@index([origin, destination, departureDate])
+  @@map("trips")
+}
+
+model TripBooking {
+  id        String   @id @default(cuid())
+  tripId    String
+  userId    String
+  seats     Int      @default(1)
+  createdAt DateTime @default(now())
+
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, userId])
+  @@map("trip_bookings")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  postId     String?
+  content    String
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  post       Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, readAt])
+  @@map("messages")
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  postId     String
+  reason     String
+  details    String?
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
