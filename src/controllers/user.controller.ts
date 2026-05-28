@@ -1,0 +1,104 @@
+import { Request, Response } from 'express';
+import { prisma } from '../lib/prisma';
+import { sendSuccess, sendError } from '../utils/apiResponse';
+import { AuthenticatedRequest } from '../types';
+
+// GET /api/users/me
+export const getMe = async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthenticatedRequest).userId!;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      countryOrigin: true,
+      cityNz: true,
+      avatarUrl: true,
+      bio: true,
+      createdAt: true,
+    },
+  });
+
+  if (!user) {
+    sendError(res, 'Usuario no encontrado', 404);
+    return;
+  }
+
+  sendSuccess(res, user);
+};
+
+// PATCH /api/users/me
+export const updateMe = async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthenticatedRequest).userId!;
+  const { name, countryOrigin, cityNz, bio, avatarUrl } = req.body as {
+    name?: string;
+    countryOrigin?: string;
+    cityNz?: string;
+    bio?: string;
+    avatarUrl?: string;
+  };
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(name !== undefined && { name: name.trim() }),
+      ...(countryOrigin !== undefined && { countryOrigin }),
+      ...(cityNz !== undefined && { cityNz }),
+      ...(bio !== undefined && { bio }),
+      ...(avatarUrl !== undefined && { avatarUrl }),
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      countryOrigin: true,
+      cityNz: true,
+      avatarUrl: true,
+      bio: true,
+      createdAt: true,
+    },
+  });
+
+  sendSuccess(res, user, 200, 'Perfil actualizado');
+};
+
+// GET /api/users/:id
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      countryOrigin: true,
+      cityNz: true,
+      avatarUrl: true,
+      bio: true,
+      createdAt: true,
+      posts: {
+        where: { status: 'ACTIVE' },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          module: true,
+          title: true,
+          city: true,
+          price: true,
+          images: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    sendError(res, 'Usuario no encontrado', 404);
+    return;
+  }
+
+  sendSuccess(res, user);
+};
