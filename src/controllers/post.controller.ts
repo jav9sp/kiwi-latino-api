@@ -25,17 +25,20 @@ const POST_SELECT = {
 } as const;
 
 export const getPosts = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { module, city, minPrice, maxPrice } = req.query as Record<string, string | undefined>;
+  const {
+    module,
+    city,
+    minPrice,
+    maxPrice,
+    tipoAlojamiento,
+    disponibleDesde,
+  } = req.query as Record<string, string | undefined>;
   const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
   const limit = Math.min(50, Math.max(1, parseInt((req.query.limit as string) || '10', 10)));
   const skip = (page - 1) * limit;
 
-  const where: {
-    status: PostStatus;
-    module?: PostModule;
-    city?: string;
-    price?: { gte?: number; lte?: number };
-  } = { status: 'ACTIVE' };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: any = { status: 'ACTIVE' as PostStatus };
 
   if (module) where.module = module as PostModule;
   if (city) where.city = city;
@@ -43,6 +46,18 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
     where.price = {};
     if (minPrice) where.price.gte = parseFloat(minPrice);
     if (maxPrice) where.price.lte = parseFloat(maxPrice);
+  }
+
+  // Housing-specific metadata filters (PostgreSQL JSON path queries)
+  const metaConditions: object[] = [];
+  if (tipoAlojamiento) {
+    metaConditions.push({ metadata: { path: ['tipo'], equals: tipoAlojamiento } });
+  }
+  if (disponibleDesde) {
+    metaConditions.push({ metadata: { path: ['disponibleDesde'], gte: disponibleDesde } });
+  }
+  if (metaConditions.length > 0) {
+    where.AND = metaConditions;
   }
 
   const [total, items] = await Promise.all([
