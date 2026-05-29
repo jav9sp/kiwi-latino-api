@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 const POST_MODULES = ['HOUSING', 'JOBS', 'MARKETPLACE', 'TRIPS', 'COMMUNITY'] as const;
 const HOUSING_TIPOS = ['pieza', 'casa', 'carpa', 'cabaña'] as const;
+const JOBS_TIPOS = ['farm', 'hostelería', 'construcción', 'retail', 'otro'] as const;
+const JOBS_SALARIO_TIPO = ['hora', 'semana', 'quincena', 'mes'] as const;
+const JOBS_NIVEL_INGLES = ['ninguno', 'básico', 'intermedio', 'avanzado'] as const;
 
 const housingMetadataSchema = z.object({
   tipo: z.enum(HOUSING_TIPOS, {
@@ -13,6 +16,15 @@ const housingMetadataSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')
     .optional(),
+});
+
+const jobsMetadataSchema = z.object({
+  tipo: z.enum(JOBS_TIPOS, {
+    errorMap: () => ({ message: 'Tipo de trabajo inválido. Opciones: farm, hostelería, construcción, retail, otro' }),
+  }),
+  salarioTipo: z.enum(JOBS_SALARIO_TIPO).optional(),
+  requiereVehiculo: z.boolean().optional(),
+  nivelIngles: z.enum(JOBS_NIVEL_INGLES).optional(),
 });
 
 export const createPostSchema = z.object({
@@ -46,6 +58,16 @@ export const createPostSchema = z.object({
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: result.error.errors[0]?.message ?? 'Datos del alojamiento inválidos',
+            path: ['metadata'],
+          });
+        }
+      }
+      if (data.module === 'JOBS') {
+        const result = jobsMetadataSchema.safeParse(data.metadata);
+        if (!result.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: result.error.errors[0]?.message ?? 'Datos del trabajo inválidos',
             path: ['metadata'],
           });
         }
@@ -94,6 +116,8 @@ export const listPostsSchema = z.object({
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'disponibleDesde inválido')
       .optional(),
+    // Jobs specific
+    tipoTrabajo: z.enum(JOBS_TIPOS).optional(),
   }),
 });
 
