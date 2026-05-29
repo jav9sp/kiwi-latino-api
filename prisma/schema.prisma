@@ -47,6 +47,8 @@ model User {
   receivedMessages Message[]      @relation("ReceivedMessages")
   reports          Report[]
   refreshTokens    RefreshToken[]
+  likes            PostLike[]
+  comments         Comment[]
 
   @@map("users")
 }
@@ -70,6 +72,8 @@ model Post {
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages Message[]
   reports  Report[]
+  likes    PostLike[]
+  comments Comment[]
 
   @@index([module, city, status])
   @@index([userId])
@@ -155,4 +159,31 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("post_likes")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@map("comments")
 }

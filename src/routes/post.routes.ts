@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middlewares/auth.middleware';
+import { authenticate, optionalAuthenticate } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import { asyncHandler } from '../utils/asyncHandler';
 import {
@@ -8,6 +8,7 @@ import {
   listPostsSchema,
   reportPostSchema,
 } from '../schemas/post.schema';
+import { createCommentSchema, listCommentsSchema } from '../schemas/comment.schema';
 import {
   getPosts,
   createPost,
@@ -16,21 +17,25 @@ import {
   deletePost,
   reportPost,
 } from '../controllers/post.controller';
+import { likePost, unlikePost } from '../controllers/like.controller';
+import { getComments, createComment, deleteComment } from '../controllers/comment.controller';
 
 const router = Router();
 
-// GET    /api/posts        → list (public, filterable, paginated)
-// POST   /api/posts        → create (auth)
-// GET    /api/posts/:id    → detail (public, only ACTIVE)
-// PATCH  /api/posts/:id    → update (auth, owner only)
-// DELETE /api/posts/:id    → soft delete (auth, owner only)
-// POST   /api/posts/:id/report → report (auth, unique per user)
-
-router.get('/', validate(listPostsSchema), asyncHandler(getPosts));
+router.get('/', optionalAuthenticate, validate(listPostsSchema), asyncHandler(getPosts));
 router.post('/', authenticate, validate(createPostSchema), asyncHandler(createPost));
-router.get('/:id', asyncHandler(getPost));
+router.get('/:id', optionalAuthenticate, asyncHandler(getPost));
 router.patch('/:id', authenticate, validate(updatePostSchema), asyncHandler(updatePost));
 router.delete('/:id', authenticate, asyncHandler(deletePost));
 router.post('/:id/report', authenticate, validate(reportPostSchema), asyncHandler(reportPost));
+
+// Likes
+router.post('/:id/like', authenticate, asyncHandler(likePost));
+router.delete('/:id/like', authenticate, asyncHandler(unlikePost));
+
+// Comments
+router.get('/:id/comments', validate(listCommentsSchema), asyncHandler(getComments));
+router.post('/:id/comments', authenticate, validate(createCommentSchema), asyncHandler(createComment));
+router.delete('/:id/comments/:commentId', authenticate, asyncHandler(deleteComment));
 
 export default router;

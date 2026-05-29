@@ -4,7 +4,7 @@ import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { AuthenticatedRequest } from '../types';
 
-const POST_SELECT = {
+const POST_BASE_SELECT = {
   id: true,
   module: true,
   title: true,
@@ -19,10 +19,28 @@ const POST_SELECT = {
   createdAt: true,
   updatedAt: true,
   userId: true,
-  user: {
-    select: { id: true, name: true, avatarUrl: true },
-  },
+  user: { select: { id: true, name: true, avatarUrl: true } },
+  _count: { select: { likes: true, comments: true } },
 } as const;
+
+function postSelect(userId?: string) {
+  if (!userId) return POST_BASE_SELECT;
+  return {
+    ...POST_BASE_SELECT,
+    likes: { where: { userId }, select: { id: true }, take: 1 },
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatPost(raw: any, userId?: string) {
+  const { _count, likes, ...rest } = raw;
+  return {
+    ...rest,
+    likeCount: _count.likes,
+    commentCount: _count.comments,
+    likedByMe: userId ? (likes?.length ?? 0) > 0 : false,
+  };
+}
 
 export const getPosts = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const {
@@ -72,11 +90,13 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
     where.AND = metaConditions;
   }
 
+  const userId = (req as AuthenticatedRequest).userId;
   const [total, items] = await Promise.all([
     prisma.post.count({ where }),
     prisma.post.findMany({
       where,
-      select: POST_SELECT,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      select: postSelect(userId) as any,
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit,
@@ -84,7 +104,7 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
   ]);
 
   sendSuccess(res, {
-    items,
+    items: items.map((p) => formatPost(p, userId)),
     total,
     page,
     limit,
@@ -95,6 +115,7 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
 export const createPost = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { module, title, description, city, price, currency, images, contactInfo, metadata } = req.body;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const post = await prisma.post.create({
     data: {
       userId: req.userId!,
@@ -108,16 +129,18 @@ export const createPost = async (req: AuthenticatedRequest, res: Response): Prom
       ...(contactInfo !== undefined && { contactInfo }),
       ...(metadata !== undefined && { metadata }),
     },
-    select: POST_SELECT,
+    select: POST_BASE_SELECT,
   });
 
-  sendSuccess(res, post, 201);
+  sendSuccess(res, formatPost(post, req.userId), 201);
 };
 
 export const getPost = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.userId;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const post = await prisma.post.findFirst({
     where: { id: req.params.id, status: 'ACTIVE' },
-    select: POST_SELECT,
+    select: postSelect(userId) as any,
   });
 
   if (!post) {
@@ -125,7 +148,7 @@ export const getPost = async (req: AuthenticatedRequest, res: Response): Promise
     return;
   }
 
-  sendSuccess(res, post);
+  sendSuccess(res, formatPost(post, userId));
 };
 
 export const updatePost = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -140,13 +163,14 @@ export const updatePost = async (req: AuthenticatedRequest, res: Response): Prom
     return;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updated = await prisma.post.update({
     where: { id: req.params.id },
     data: req.body,
-    select: POST_SELECT,
+    select: POST_BASE_SELECT,
   });
 
-  sendSuccess(res, updated);
+  sendSuccess(res, formatPost(updated, req.userId));
 };
 
 export const deletePost = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
