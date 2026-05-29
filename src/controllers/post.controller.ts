@@ -33,6 +33,8 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
     tipoAlojamiento,
     disponibleDesde,
     tipoTrabajo,
+    categoria,
+    condicion,
   } = req.query as Record<string, string | undefined>;
   const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
   const limit = Math.min(50, Math.max(1, parseInt((req.query.limit as string) || '10', 10)));
@@ -59,6 +61,12 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
   }
   if (tipoTrabajo) {
     metaConditions.push({ metadata: { path: ['tipo'], equals: tipoTrabajo } });
+  }
+  if (categoria) {
+    metaConditions.push({ metadata: { path: ['categoria'], equals: categoria } });
+  }
+  if (condicion) {
+    metaConditions.push({ metadata: { path: ['condicion'], equals: condicion } });
   }
   if (metaConditions.length > 0) {
     where.AND = metaConditions;

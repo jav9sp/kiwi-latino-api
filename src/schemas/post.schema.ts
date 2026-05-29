@@ -5,6 +5,11 @@ const HOUSING_TIPOS = ['pieza', 'casa', 'carpa', 'cabaña'] as const;
 const JOBS_TIPOS = ['farm', 'hostelería', 'construcción', 'retail', 'otro'] as const;
 const JOBS_SALARIO_TIPO = ['hora', 'semana', 'quincena', 'mes'] as const;
 const JOBS_NIVEL_INGLES = ['ninguno', 'básico', 'intermedio', 'avanzado'] as const;
+const MARKETPLACE_CATEGORIAS = [
+  'electrónica', 'muebles', 'ropa', 'electrodomésticos',
+  'vehículos', 'deportes', 'herramientas', 'libros', 'otro',
+] as const;
+const MARKETPLACE_CONDICIONES = ['nuevo', 'buen estado', 'usado'] as const;
 
 const housingMetadataSchema = z.object({
   tipo: z.enum(HOUSING_TIPOS, {
@@ -16,6 +21,15 @@ const housingMetadataSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')
     .optional(),
+});
+
+const marketplaceMetadataSchema = z.object({
+  categoria: z.enum(MARKETPLACE_CATEGORIAS, {
+    errorMap: () => ({ message: 'Categoría inválida' }),
+  }),
+  condicion: z.enum(MARKETPLACE_CONDICIONES, {
+    errorMap: () => ({ message: 'Condición inválida. Opciones: nuevo, buen estado, usado' }),
+  }),
 });
 
 const jobsMetadataSchema = z.object({
@@ -72,6 +86,16 @@ export const createPostSchema = z.object({
           });
         }
       }
+      if (data.module === 'MARKETPLACE') {
+        const result = marketplaceMetadataSchema.safeParse(data.metadata);
+        if (!result.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: result.error.errors[0]?.message ?? 'Datos del marketplace inválidos',
+            path: ['metadata'],
+          });
+        }
+      }
     }),
 });
 
@@ -118,6 +142,9 @@ export const listPostsSchema = z.object({
       .optional(),
     // Jobs specific
     tipoTrabajo: z.enum(JOBS_TIPOS).optional(),
+    // Marketplace specific
+    categoria: z.enum(MARKETPLACE_CATEGORIAS).optional(),
+    condicion: z.enum(MARKETPLACE_CONDICIONES).optional(),
   }),
 });
 
