@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
+import { sendPushNotifications } from '../utils/push';
 import { AuthenticatedRequest } from '../types';
 
 const USER_SELECT = { id: true, name: true, avatarUrl: true } as const;
@@ -18,65 +19,54 @@ const MESSAGE_SELECT = {
 export const getConversations = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.userId!;
 
-  // Encuentra todos los interlocutores únicos (usuarios con quienes hay mensajes)
-  const [sentTo, receivedFrom] = await Promise.all([
-    prisma.message.findMany({
-      where: { senderId: userId },
-      select: { receiverId: true },
-      distinct: ['receiverId'],
-    }),
-    prisma.message.findMany({
-      where: { receiverId: userId },
-      select: { senderId: true },
-      distinct: ['senderId'],
-    }),
-  ]);
+  // Query 1: todos los mensajes del usuario, ordenados desc (cap 500 para no traer historia infinita)
+  const messages = await prisma.message.findMany({
+    where: { OR: [{ senderId: userId }, { receiverId: userId }] },
+    select: MESSAGE_SELECT,
+    orderBy: { createdAt: 'desc' },
+    take: 500,
+  });
 
-  const partnerIds = [
-    ...new Set([
-      ...sentTo.map((m) => m.receiverId),
-      ...receivedFrom.map((m) => m.senderId),
-    ]),
-  ];
-
-  if (partnerIds.length === 0) {
+  if (messages.length === 0) {
     sendSuccess(res, []);
     return;
   }
 
-  // Para cada interlocutor: último mensaje + no leídos + datos de usuario
-  const conversations = await Promise.all(
-    partnerIds.map(async (partnerId) => {
-      const [lastMessage, unreadCount, partner] = await Promise.all([
-        prisma.message.findFirst({
-          where: {
-            OR: [
-              { senderId: userId, receiverId: partnerId },
-              { senderId: partnerId, receiverId: userId },
-            ],
-          },
-          select: MESSAGE_SELECT,
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.message.count({
-          where: { senderId: partnerId, receiverId: userId, readAt: null },
-        }),
-        prisma.user.findUnique({
-          where: { id: partnerId },
-          select: USER_SELECT,
-        }),
-      ]);
+  // Deduplicar en memoria: primer mensaje de cada interlocutor = el más reciente
+  const seenPartners = new Set<string>();
+  const lastMessageByPartner = new Map<string, (typeof messages)[0]>();
+  const partnerIds: string[] = [];
 
-      return { user: partner, lastMessage, unreadCount };
-    }),
-  );
+  for (const msg of messages) {
+    const partnerId = msg.senderId === userId ? msg.receiverId : msg.senderId;
+    if (!seenPartners.has(partnerId)) {
+      seenPartners.add(partnerId);
+      lastMessageByPartner.set(partnerId, msg);
+      partnerIds.push(partnerId);
+    }
+  }
 
-  // Ordena por mensaje más reciente primero
-  conversations.sort(
-    (a, b) =>
-      new Date(b.lastMessage!.createdAt).getTime() -
-      new Date(a.lastMessage!.createdAt).getTime(),
-  );
+  // Query 2: conteo de no leídos por interlocutor (1 sola query con groupBy)
+  const unreadGroups = await prisma.message.groupBy({
+    by: ['senderId'],
+    where: { receiverId: userId, readAt: null, senderId: { in: partnerIds } },
+    _count: { id: true },
+  });
+  const unreadMap = new Map(unreadGroups.map((g) => [g.senderId, g._count.id]));
+
+  // Query 3: datos de todos los interlocutores (1 sola query)
+  const partners = await prisma.user.findMany({
+    where: { id: { in: partnerIds } },
+    select: USER_SELECT,
+  });
+  const partnerMap = new Map(partners.map((p) => [p.id, p]));
+
+  // Ensamblar en el orden original (ya ordenado por más reciente)
+  const conversations = partnerIds.map((partnerId) => ({
+    user: partnerMap.get(partnerId),
+    lastMessage: lastMessageByPartner.get(partnerId),
+    unreadCount: unreadMap.get(partnerId) ?? 0,
+  }));
 
   sendSuccess(res, conversations);
 };
@@ -132,7 +122,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response): Pro
     return;
   }
 
-  const receiver = await prisma.user.findUnique({ where: { id: receiverId } });
+  const receiver = await prisma.user.findUnique({
+    where: { id: receiverId },
+    select: { id: true, pushTokens: { select: { token: true } } },
+  });
   if (!receiver) {
     sendError(res, 'Usuario destinatario no encontrado', 404);
     return;
@@ -157,4 +150,21 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response): Pro
   });
 
   sendSuccess(res, message, 201);
+
+  // F3-009: notificar al receptor si tiene push tokens (best-effort, no bloquea la respuesta)
+  if (receiver.pushTokens.length > 0) {
+    const sender = await prisma.user.findUnique({
+      where: { id: senderId },
+      select: { name: true },
+    });
+    void sendPushNotifications(
+      receiver.pushTokens.map(({ token }) => ({
+        to: token,
+        sound: 'default' as const,
+        title: sender?.name ?? 'Nuevo mensaje',
+        body: content.length > 100 ? `${content.slice(0, 100)}…` : content,
+        data: { type: 'new_message', fromUserId: senderId },
+      })),
+    );
+  }
 };

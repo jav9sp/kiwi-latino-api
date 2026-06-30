@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { PostModule, PostStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
+import { sendPushNotifications } from '../utils/push';
 import { AuthenticatedRequest } from '../types';
 
 const POST_BASE_SELECT = {
@@ -133,6 +134,37 @@ export const createPost = async (req: AuthenticatedRequest, res: Response): Prom
   });
 
   sendSuccess(res, formatPost(post, req.userId), 201);
+
+  // F3-010: notificar a usuarios de la misma ciudad (best-effort, máx 1 notif/hora por token)
+  if (city) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    prisma.userPushToken
+      .findMany({
+        where: {
+          user: { cityNz: city },
+          userId: { not: req.userId! },
+          OR: [{ lastNotifiedAt: null }, { lastNotifiedAt: { lt: oneHourAgo } }],
+        },
+        select: { id: true, token: true },
+      })
+      .then(async (tokens) => {
+        if (tokens.length === 0) return;
+        await sendPushNotifications(
+          tokens.map(({ token }) => ({
+            to: token,
+            sound: 'default' as const,
+            title: `Nueva publicación en ${city}`,
+            body: title,
+            data: { type: 'new_post', postId: post.id },
+          })),
+        );
+        await prisma.userPushToken.updateMany({
+          where: { id: { in: tokens.map((t) => t.id) } },
+          data: { lastNotifiedAt: new Date() },
+        });
+      })
+      .catch(() => {});
+  }
 };
 
 export const getPost = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -199,8 +231,8 @@ export const reportPost = async (req: AuthenticatedRequest, res: Response): Prom
     return;
   }
 
-  const existing = await prisma.report.findFirst({
-    where: { postId, reporterId: req.userId! },
+  const existing = await prisma.report.findUnique({
+    where: { postId_reporterId: { postId, reporterId: req.userId! } },
   });
   if (existing) {
     sendError(res, 'Ya reportaste esta publicación', 409);
