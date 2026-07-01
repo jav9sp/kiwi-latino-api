@@ -8,6 +8,7 @@ import tripRoutes from './routes/trip.routes';
 import messageRoutes from './routes/message.routes';
 import userRoutes from './routes/user.routes';
 import uploadRoutes from './routes/upload.routes';
+import adminRoutes from './routes/admin.routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { notFound } from './middlewares/notFound.middleware';
 
@@ -58,6 +59,7 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handling
 app.use(notFound);
