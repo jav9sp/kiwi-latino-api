@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { sendPushNotifications } from '../utils/push';
+import { getIO } from '../lib/socket';
 import { AuthenticatedRequest } from '../types';
 
 const USER_SELECT = { id: true, name: true, avatarUrl: true } as const;
@@ -150,6 +151,12 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response): Pro
   });
 
   sendSuccess(res, message, 201);
+
+  // Emitir el mensaje en tiempo real al receptor y al remitente (multi-dispositivo)
+  const io = getIO();
+  if (io) {
+    io.to(`user:${receiverId}`).to(`user:${senderId}`).emit('new_message', message);
+  }
 
   // F3-009: notificar al receptor si tiene push tokens (best-effort, no bloquea la respuesta)
   if (receiver.pushTokens.length > 0) {
