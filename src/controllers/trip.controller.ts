@@ -27,7 +27,10 @@ export const getTrips = async (req: Request, res: Response): Promise<void> => {
   const skip = (page - 1) * limit;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = { status: (status as TripStatus) ?? 'OPEN' };
+  const where: any = {};
+
+  if (status) where.status = status as TripStatus;
+  else where.status = { in: ['OPEN', 'FULL'] as TripStatus[] };
 
   if (origin) where.origin = { contains: origin, mode: 'insensitive' };
   if (destination) where.destination = { contains: destination, mode: 'insensitive' };
