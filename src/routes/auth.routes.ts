@@ -1,10 +1,15 @@
 import { Router } from 'express';
+import { register, login, refresh, logout } from '../controllers/auth.controller';
+import { authenticate } from '../middlewares/auth.middleware';
+import { validate } from '../middlewares/validate.middleware';
+import { registerSchema, loginSchema, refreshSchema } from '../schemas/auth.schema';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
-// POST /api/auth/register
-// POST /api/auth/login
-// POST /api/auth/refresh
-// POST /api/auth/logout
+router.post('/register', validate(registerSchema), asyncHandler(register));
+router.post('/login', validate(loginSchema), asyncHandler(login));
+router.post('/refresh', validate(refreshSchema), asyncHandler(refresh));
+router.post('/logout', authenticate, asyncHandler(logout));
 
 export default router;
