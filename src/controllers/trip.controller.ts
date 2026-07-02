@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { TripStatus, BookingStatus } from '@prisma/client';
+import { TripStatus, BookingStatus, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { AuthenticatedRequest } from '../types';
@@ -171,7 +171,7 @@ export const cancelBooking = async (req: AuthenticatedRequest, res: Response): P
   }
 
   const wasAccepted = booking.status === BookingStatus.ACCEPTED;
-  const ops: Parameters<typeof prisma.$transaction>[0] = [
+  const ops: Prisma.PrismaPromise<unknown>[] = [
     prisma.tripBooking.delete({ where: { tripId_userId: { tripId, userId } } }),
   ];
 
@@ -238,7 +238,7 @@ export const rejectBooking = async (req: AuthenticatedRequest, res: Response): P
   }
 
   const wasAccepted = booking.status === BookingStatus.ACCEPTED;
-  const ops: Parameters<typeof prisma.$transaction>[0] = [
+  const ops: Prisma.PrismaPromise<unknown>[] = [
     prisma.tripBooking.update({ where: { id: bookingId }, data: { status: 'REJECTED' } }),
   ];
 
