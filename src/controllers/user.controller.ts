@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { AuthenticatedRequest } from '../types';
@@ -62,6 +63,23 @@ export const updateMe = async (req: Request, res: Response): Promise<void> => {
   });
 
   sendSuccess(res, user, 200, 'Perfil actualizado');
+};
+
+// PATCH /api/users/me/password
+export const changePassword = async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthenticatedRequest).userId!;
+  const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) { sendError(res, 'Usuario no encontrado', 404); return; }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) { sendError(res, 'La contraseña actual es incorrecta', 400); return; }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+  sendSuccess(res, null, 200, 'Contraseña actualizada correctamente');
 };
 
 // GET /api/users/:id
