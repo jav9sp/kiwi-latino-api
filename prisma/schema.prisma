@@ -36,6 +36,7 @@ model User {
   cityNz        String?
   avatarUrl     String?
   bio           String?
+  lastSeenAt    DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

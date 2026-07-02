@@ -105,13 +105,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
 
-  await prisma.refreshToken.create({
-    data: {
-      userId: user.id,
-      token: refreshToken,
-      expiresAt: tokenExpiresAt(refreshToken),
-    },
-  });
+  await Promise.all([
+    prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: refreshToken,
+        expiresAt: tokenExpiresAt(refreshToken),
+      },
+    }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: { lastSeenAt: new Date() },
+    }),
+  ]);
 
   sendSuccess(res, { user: sanitizeUser(user), tokens: { accessToken, refreshToken } });
 };

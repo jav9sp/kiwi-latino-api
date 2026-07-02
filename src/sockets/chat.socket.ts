@@ -1,5 +1,6 @@
 import { Server } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
+import { prisma } from '../lib/prisma';
 
 export function registerChatHandlers(io: Server): void {
   // Middleware de autenticación: verifica el token JWT en el handshake
@@ -34,6 +35,10 @@ export function registerChatHandlers(io: Server): void {
 
     socket.on('disconnect', () => {
       socket.leave(`user:${userId}`);
+      prisma.user.update({
+        where: { id: userId },
+        data: { lastSeenAt: new Date() },
+      }).catch(() => {});
     });
   });
 }
