@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { TripStatus } from '@prisma/client';
+import { TripStatus, BookingStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { AuthenticatedRequest } from '../types';
@@ -101,6 +101,7 @@ export const getTrip = async (req: Request, res: Response): Promise<void> => {
         select: {
           id: true,
           seats: true,
+          status: true,
           createdAt: true,
           user: { select: { id: true, name: true, avatarUrl: true } },
         },
@@ -139,22 +140,14 @@ export const bookTrip = async (req: AuthenticatedRequest, res: Response): Promis
     where: { tripId_userId: { tripId, userId } },
   });
   if (existing) {
-    sendError(res, 'Ya tienes una reserva en este viaje', 409);
+    sendError(res, 'Ya tienes una solicitud en este viaje', 409);
     return;
   }
 
-  const newSeats = trip.seatsAvailable - 1;
-
-  const [booking] = await prisma.$transaction([
-    prisma.tripBooking.create({
-      data: { tripId, userId, seats: 1 },
-      select: { id: true, seats: true, createdAt: true },
-    }),
-    prisma.trip.update({
-      where: { id: tripId },
-      data: { seatsAvailable: newSeats, ...(newSeats === 0 && { status: 'FULL' }) },
-    }),
-  ]);
+  const booking = await prisma.tripBooking.create({
+    data: { tripId, userId, seats: 1, status: 'PENDING' },
+    select: { id: true, seats: true, status: true, createdAt: true },
+  });
 
   sendSuccess(res, booking, 201);
 };
@@ -169,7 +162,7 @@ export const cancelBooking = async (req: AuthenticatedRequest, res: Response): P
   });
 
   if (!booking) {
-    sendError(res, 'No tienes una reserva en este viaje', 404);
+    sendError(res, 'No tienes una solicitud en este viaje', 404);
     return;
   }
   if (booking.trip.status === 'COMPLETED' || booking.trip.status === 'CANCELLED') {
@@ -177,16 +170,88 @@ export const cancelBooking = async (req: AuthenticatedRequest, res: Response): P
     return;
   }
 
-  const newSeats = booking.trip.seatsAvailable + booking.seats;
-  const wasFullNowOpen = booking.trip.status === 'FULL';
+  const wasAccepted = booking.status === BookingStatus.ACCEPTED;
+  const ops: Parameters<typeof prisma.$transaction>[0] = [
+    prisma.tripBooking.delete({ where: { tripId_userId: { tripId, userId } } }),
+  ];
+
+  if (wasAccepted) {
+    const newSeats = booking.trip.seatsAvailable + booking.seats;
+    ops.push(prisma.trip.update({
+      where: { id: tripId },
+      data: { seatsAvailable: newSeats, ...(booking.trip.status === 'FULL' && { status: 'OPEN' }) },
+    }));
+  }
+
+  await prisma.$transaction(ops);
+  res.status(204).send();
+};
+
+export const acceptBooking = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const { id: tripId, bookingId } = req.params;
+  const userId = req.userId!;
+
+  const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+  if (!trip || trip.userId !== userId) {
+    sendError(res, 'No autorizado', 403);
+    return;
+  }
+
+  const booking = await prisma.tripBooking.findUnique({ where: { id: bookingId } });
+  if (!booking || booking.tripId !== tripId || booking.status !== BookingStatus.PENDING) {
+    sendError(res, 'Solicitud no encontrada o ya procesada', 400);
+    return;
+  }
+
+  if (trip.seatsAvailable < booking.seats) {
+    sendError(res, 'No hay asientos disponibles', 409);
+    return;
+  }
+
+  const newSeats = trip.seatsAvailable - booking.seats;
 
   await prisma.$transaction([
-    prisma.tripBooking.delete({ where: { tripId_userId: { tripId, userId } } }),
+    prisma.tripBooking.update({ where: { id: bookingId }, data: { status: 'ACCEPTED' } }),
     prisma.trip.update({
       where: { id: tripId },
-      data: { seatsAvailable: newSeats, ...(wasFullNowOpen && { status: 'OPEN' }) },
+      data: { seatsAvailable: newSeats, ...(newSeats === 0 && { status: 'FULL' }) },
     }),
   ]);
 
-  res.status(204).send();
+  sendSuccess(res, null, 200, 'Solicitud aceptada');
+};
+
+export const rejectBooking = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const { id: tripId, bookingId } = req.params;
+  const userId = req.userId!;
+
+  const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+  if (!trip || trip.userId !== userId) {
+    sendError(res, 'No autorizado', 403);
+    return;
+  }
+
+  const booking = await prisma.tripBooking.findUnique({ where: { id: bookingId } });
+  if (!booking || booking.tripId !== tripId || booking.status === BookingStatus.REJECTED) {
+    sendError(res, 'Solicitud no encontrada o ya rechazada', 400);
+    return;
+  }
+
+  const wasAccepted = booking.status === BookingStatus.ACCEPTED;
+  const ops: Parameters<typeof prisma.$transaction>[0] = [
+    prisma.tripBooking.update({ where: { id: bookingId }, data: { status: 'REJECTED' } }),
+  ];
+
+  if (wasAccepted) {
+    ops.push(prisma.trip.update({
+      where: { id: tripId },
+      data: {
+        seatsAvailable: { increment: booking.seats },
+        ...(trip.status === 'FULL' && { status: 'OPEN' }),
+      },
+    }));
+  }
+
+  await prisma.$transaction(ops);
+  sendSuccess(res, null, 200, 'Solicitud rechazada');
 };

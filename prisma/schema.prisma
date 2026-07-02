@@ -27,6 +27,12 @@ enum TripStatus {
   CANCELLED
 }
 
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -106,11 +112,12 @@ model Trip {
 }
 
 model TripBooking {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   tripId    String
   userId    String
-  seats     Int      @default(1)
-  createdAt DateTime @default(now())
+  seats     Int           @default(1)
+  status    BookingStatus @default(PENDING)
+  createdAt DateTime      @default(now())
 
   trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
