@@ -18,6 +18,7 @@ import {
   reportPost,
 } from '../controllers/post.controller';
 import { likePost, unlikePost } from '../controllers/like.controller';
+import { savePost, unsavePost } from '../controllers/save.controller';
 import { getComments, createComment, deleteComment } from '../controllers/comment.controller';
 
 const router = Router();
@@ -32,6 +33,10 @@ router.post('/:id/report', authenticate, validate(reportPostSchema), asyncHandle
 // Likes
 router.post('/:id/like', authenticate, asyncHandler(likePost));
 router.delete('/:id/like', authenticate, asyncHandler(unlikePost));
+
+// Saves
+router.post('/:id/save', authenticate, asyncHandler(savePost));
+router.delete('/:id/save', authenticate, asyncHandler(unsavePost));
 
 // Comments
 router.get('/:id/comments', validate(listCommentsSchema), asyncHandler(getComments));
