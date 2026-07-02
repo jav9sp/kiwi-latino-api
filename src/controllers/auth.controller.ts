@@ -87,6 +87,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body as { email: string; password: string };
 
+  console.log(`${typeof(email)} - ${typeof(password)}`)
+
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (!user) {
     sendError(res, 'Credenciales incorrectas', 401);
