@@ -203,7 +203,18 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     include: { user: true },
   });
 
-  if (!record || record.usedAt || record.expiresAt < new Date()) {
+  if (!record) {
+    console.error('[reset-password] Token not found:', token?.slice(0, 8) + '...');
+    sendError(res, 'El enlace es inválido o ya expiró', 400);
+    return;
+  }
+  if (record.usedAt) {
+    console.error('[reset-password] Token already used:', token?.slice(0, 8) + '...');
+    sendError(res, 'El enlace es inválido o ya expiró', 400);
+    return;
+  }
+  if (record.expiresAt < new Date()) {
+    console.error('[reset-password] Token expired. ExpiresAt:', record.expiresAt, 'Now:', new Date());
     sendError(res, 'El enlace es inválido o ya expiró', 400);
     return;
   }
