@@ -184,7 +184,12 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
   await prisma.passwordResetToken.create({ data: { userId: user.id, token, expiresAt } });
 
   const resetUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/reset-password?token=${token}`;
-  await sendPasswordResetEmail(user.email, user.name, resetUrl);
+
+  try {
+    await sendPasswordResetEmail(user.email, user.name, resetUrl);
+  } catch (err) {
+    console.error('[forgot-password] Error sending email:', err);
+  }
 
   sendSuccess(res, null, 200, 'Si el correo existe recibirás un enlace en breve');
 };
