@@ -9,6 +9,8 @@ import {
   getTrip,
   bookTrip,
   cancelBooking,
+  acceptBooking,
+  rejectBooking,
 } from '../controllers/trip.controller';
 
 const router = Router();
@@ -18,5 +20,7 @@ router.post('/', authenticate, validate(createTripSchema), asyncHandler(createTr
 router.get('/:id', asyncHandler(getTrip));
 router.post('/:id/book', authenticate, asyncHandler(bookTrip));
 router.delete('/:id/book', authenticate, asyncHandler(cancelBooking));
+router.post('/:id/bookings/:bookingId/accept', authenticate, asyncHandler(acceptBooking));
+router.post('/:id/bookings/:bookingId/reject', authenticate, asyncHandler(rejectBooking));
 
 export default router;

@@ -59,12 +59,17 @@ export const createComment = async (req: AuthenticatedRequest, res: Response): P
 export const deleteComment = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: postId, commentId } = req.params;
 
-  const comment = await prisma.comment.findUnique({ where: { id: commentId } });
+  const comment = await prisma.comment.findUnique({
+    where: { id: commentId },
+    include: { post: { select: { userId: true } } },
+  });
   if (!comment || comment.postId !== postId) {
     sendError(res, 'Comentario no encontrado', 404);
     return;
   }
-  if (comment.userId !== req.userId) {
+  const isCommentAuthor = comment.userId === req.userId;
+  const isPostOwner = comment.post.userId === req.userId;
+  if (!isCommentAuthor && !isPostOwner) {
     sendError(res, 'No tienes permiso para eliminar este comentario', 403);
     return;
   }

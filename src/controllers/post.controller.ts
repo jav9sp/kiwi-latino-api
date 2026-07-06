@@ -5,7 +5,7 @@ import { sendSuccess, sendError } from '../utils/apiResponse';
 import { sendPushNotifications } from '../utils/push';
 import { AuthenticatedRequest } from '../types';
 
-const POST_BASE_SELECT = {
+export const POST_BASE_SELECT = {
   id: true,
   module: true,
   title: true,
@@ -29,17 +29,19 @@ function postSelect(userId?: string) {
   return {
     ...POST_BASE_SELECT,
     likes: { where: { userId }, select: { id: true }, take: 1 },
+    saves: { where: { userId }, select: { id: true }, take: 1 },
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function formatPost(raw: any, userId?: string) {
-  const { _count, likes, ...rest } = raw;
+export function formatPost(raw: any, userId?: string) {
+  const { _count, likes, saves, ...rest } = raw;
   return {
     ...rest,
     likeCount: _count.likes,
     commentCount: _count.comments,
     likedByMe: userId ? (likes?.length ?? 0) > 0 : false,
+    savedByMe: userId ? (saves?.length ?? 0) > 0 : false,
   };
 }
 
