@@ -27,7 +27,7 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response): Promis
     orderBy: { createdAt: 'desc' },
     select: {
       id: true, name: true, email: true,
-      avatarUrl: true, countryOrigin: true, cityNz: true, createdAt: true,
+      avatarUrl: true, countryOrigin: true, cityNz: true, createdAt: true, lastSeenAt: true,
     },
   });
 
