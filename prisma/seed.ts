@@ -1,297 +1,666 @@
-import { PrismaClient, PostModule } from '@prisma/client';
+// Para volver a iniciar la DB ejecutar npx prisma db seed
+
+import 'dotenv/config';
+import { PrismaClient, PostModule, TripStatus, BookingStatus } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
-
-// Contraseña común para todos los usuarios de prueba
-const TEST_PASSWORD = 'Test1234';
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log('🌱 Iniciando seed...');
+  console.log('🧹 Limpiando base de datos...');
 
-  // Limpiar datos existentes (en orden para respetar FK)
-  await prisma.refreshToken.deleteMany();
-  await prisma.message.deleteMany();
+  await prisma.emailVerificationToken.deleteMany();
+  await prisma.passwordResetToken.deleteMany();
+  await prisma.userPushToken.deleteMany();
+  await prisma.savedPost.deleteMany();
+  await prisma.postLike.deleteMany();
+  await prisma.comment.deleteMany();
   await prisma.report.deleteMany();
+  await prisma.message.deleteMany();
   await prisma.tripBooking.deleteMany();
   await prisma.trip.deleteMany();
   await prisma.post.deleteMany();
+  await prisma.refreshToken.deleteMany();
   await prisma.user.deleteMany();
 
-  const hash = await bcrypt.hash(TEST_PASSWORD, 10);
+  console.log('👥 Creando usuarios...');
 
-  // ── Usuarios ─────────────────────────────────────────────────────────────
-  const [carlos, maria, juan, ana, diego] = await Promise.all([
+  const hash = await bcrypt.hash('Test1234!', 10);
+  const now = Date.now();
+  const min = (n: number) => new Date(now - n * 60_000);
+  const hrs = (n: number) => new Date(now - n * 3_600_000);
+  const days = (n: number) => new Date(now - n * 86_400_000);
+  const future = (n: number) => new Date(now + n * 86_400_000);
+
+  const [camila, andres, valentina, rodrigo, sofia, luis] = await Promise.all([
     prisma.user.create({
       data: {
-        email: 'carlos@kiwilatino.test',
+        email: 'camila.torres@test.com',
         passwordHash: hash,
-        name: 'Carlos Rodríguez',
-        countryOrigin: 'Chile',
+        name: 'Camila Torres',
+        countryOrigin: 'CL',
         cityNz: 'Auckland',
-        bio: 'Electricista con 8 años de experiencia. Llegué a NZ en 2023 buscando nuevas oportunidades.',
+        bio: 'Chilena en Auckland hace 2 años. Amante del café y los paisajes de NZ.',
+        emailVerified: true,
+        lastSeenAt: min(5),
       },
     }),
     prisma.user.create({
       data: {
-        email: 'maria@kiwilatino.test',
+        email: 'andres.garcia@test.com',
         passwordHash: hash,
-        name: 'María González',
-        countryOrigin: 'Colombia',
+        name: 'Andrés García',
+        countryOrigin: 'CO',
         cityNz: 'Wellington',
-        bio: 'Chef colombiana explorando la cocina neozelandesa. Busco arriendo cercano al centro.',
+        bio: 'Colombiano en Wellington. Trabajo en tech, apasionado por la música y el fútbol.',
+        emailVerified: true,
+        lastSeenAt: min(30),
       },
     }),
     prisma.user.create({
       data: {
-        email: 'juan@kiwilatino.test',
+        email: 'valentina.perez@test.com',
         passwordHash: hash,
-        name: 'Juan Pérez',
-        countryOrigin: 'México',
+        name: 'Valentina Pérez',
+        countryOrigin: 'VE',
+        cityNz: 'Auckland',
+        bio: 'Venezolana en Auckland. Cocinera de corazón y exploradora de weekends.',
+        emailVerified: true,
+        lastSeenAt: hrs(2),
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'rodrigo.morales@test.com',
+        passwordHash: hash,
+        name: 'Rodrigo Morales',
+        countryOrigin: 'MX',
         cityNz: 'Christchurch',
-        bio: 'Trabajador en farm de kiwis. Feliz de ayudar a recién llegados.',
+        bio: 'Mexicano en Christchurch. Constructor, manitas y buen cocinero de tacos.',
+        emailVerified: true,
+        lastSeenAt: days(1),
       },
     }),
     prisma.user.create({
       data: {
-        email: 'ana@kiwilatino.test',
+        email: 'sofia.mendoza@test.com',
         passwordHash: hash,
-        name: 'Ana Martínez',
-        countryOrigin: 'Argentina',
+        name: 'Sofía Mendoza',
+        countryOrigin: 'AR',
         cityNz: 'Hamilton',
-        bio: 'Enfermera argentina viviendo en Hamilton. Me encanta el senderismo por Waikato.',
+        bio: 'Argentina en Hamilton. Profesora de español, fanática del mate y los libros.',
+        emailVerified: true,
+        lastSeenAt: days(3),
       },
     }),
     prisma.user.create({
       data: {
-        email: 'diego@kiwilatino.test',
+        email: 'luis.herrera@test.com',
         passwordHash: hash,
-        name: 'Diego López',
-        countryOrigin: 'Venezuela',
-        cityNz: 'Queenstown',
-        bio: 'Guía de ski en Coronet Peak. Vendo equipos de segunda mano cada temporada.',
+        name: 'Luis Herrera',
+        countryOrigin: 'PE',
+        cityNz: 'Tauranga',
+        bio: 'Peruano en Tauranga. Chef de oficio, busco abrir mi propio negocio algún día.',
+        emailVerified: true,
+        lastSeenAt: min(5),
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'francisco@admin.com',
+        passwordHash: hash,
+        name: 'Francisco Admin',
+        countryOrigin: 'Chile',
+        cityNz: 'Christchurch',
+        bio: 'Psicólo y programador, fundador de esta página. De Concepción Chile pal mundo.',
+        emailVerified: true,
+        lastSeenAt: min(5),
       },
     }),
   ]);
 
-  console.log(`✅ ${5} usuarios creados`);
+  // ─── HOUSING ──────────────────────────────────────────────────────────────
+  console.log('🏠 Housing...');
 
-  // ── Posts: Arriendos ─────────────────────────────────────────────────────
-  await prisma.post.createMany({
-    data: [
-      {
-        userId: carlos.id,
+  const [postH1, , postH3] = await Promise.all([
+    prisma.post.create({
+      data: {
+        userId: camila.id,
         module: PostModule.HOUSING,
-        title: 'Pieza en casa compartida — Auckland CBD',
+        title: 'Habitación en Auckland Central – $310/semana',
         description:
-          'Pieza amoblada disponible en casa con 4 latinos. Incluye WiFi, lavadora y todas las cuentas. A 10 min caminando del Sky Tower. Ambiente tranquilo, ideal para trabajadores.',
+          'Habitación amoblada en depto de 3 personas. Cocina equipada, living cómodo, a 10 min a pie de Britomart. Servicios incluidos. Buscamos persona tranquila y responsable.',
         city: 'Auckland',
-        price: 280,
+        price: 310,
+        currency: 'NZD',
         images: [],
         contactInfo: 'WhatsApp +64 21 123 4567',
-        metadata: { tipo: 'pieza', amueblado: true, serviciosIncluidos: true },
+        metadata: { type: 'habitacion', furnished: true, bills: 'incluidos', flatmates: 2 },
+        createdAt: days(5),
       },
-      {
-        userId: maria.id,
+    }),
+    prisma.post.create({
+      data: {
+        userId: valentina.id,
         module: PostModule.HOUSING,
-        title: 'Se arrienda pieza en Wellington — cerca del parlament',
+        title: 'Busco flatmate para depto en Grey Lynn – $380/semana',
         description:
-          'Habitación en departamento de 3 personas. Muy bien conectado en transporte público. Cocina equipada, salón compartido. Disponible desde el 1 de julio.',
-        city: 'Wellington',
-        price: 250,
-        images: [],
-        contactInfo: 'maria@kiwilatino.test',
-        metadata: { tipo: 'pieza', amueblado: true, serviciosIncluidos: false, disponibleDesde: '2026-07-01' },
-      },
-      {
-        userId: ana.id,
-        module: PostModule.HOUSING,
-        title: 'Casa completa en Hamilton — 3 habitaciones',
-        description:
-          'Buscamos 2 personas más para compartir casa de 3 habitaciones. Barrio tranquilo, jardín, garaje. 15 min del centro. Mascotas pequeñas OK.',
-        city: 'Hamilton',
-        price: 220,
-        images: [],
-        metadata: { tipo: 'casa', amueblado: false, serviciosIncluidos: false },
-      },
-    ],
-  });
-
-  // ── Posts: Trabajo ───────────────────────────────────────────────────────
-  await prisma.post.createMany({
-    data: [
-      {
-        userId: juan.id,
-        module: PostModule.JOBS,
-        title: 'Se busca trabajador para farm de kiwis — Tauranga',
-        description:
-          'Farm familiar necesita 3 trabajadores para temporada de cosecha (julio–septiembre). Sin experiencia necesaria, capacitación en el lugar. Alojamiento disponible a precio reducido.',
-        city: 'Tauranga',
-        price: 23,
-        images: [],
-        contactInfo: 'juan@kiwilatino.test',
-        metadata: { tipo: 'farm', salarioTipo: 'por hora', requiereVehiculo: false, requiereIngles: 'básico' },
-      },
-      {
-        userId: carlos.id,
-        module: PostModule.JOBS,
-        title: 'Oferta: Ayudante de construcción — Auckland',
-        description:
-          'Empresa de construcción busca ayudantes para proyecto en North Shore. Full time, lunes a viernes. Licencia de conducir deseable pero no indispensable. Pago semanal.',
+          'Habitación en depto de 2 dormitorios, Grey Lynn. Barrio tranquilo, cerca de cafés y parques. Todo incluido. Solo personas respetuosas.',
         city: 'Auckland',
-        price: 25,
+        price: 380,
+        currency: 'NZD',
         images: [],
-        metadata: { tipo: 'construcción', salarioTipo: 'por hora', requiereVehiculo: false, requiereIngles: 'intermedio' },
+        contactInfo: 'Mensaje por aquí',
+        metadata: { type: 'habitacion', furnished: true, bills: 'incluidos' },
+        createdAt: days(3),
       },
-    ],
-  });
-
-  // ── Posts: Compra y Venta ────────────────────────────────────────────────
-  await prisma.post.createMany({
-    data: [
-      {
-        userId: diego.id,
-        module: PostModule.MARKETPLACE,
-        title: 'Vendo equipo de ski completo — talla M',
+    }),
+    prisma.post.create({
+      data: {
+        userId: andres.id,
+        module: PostModule.HOUSING,
+        title: 'Busco habitación en Wellington – hasta $350/semana',
         description:
-          'Vendo skis Rossignol 165cm + botas talla 43 + casco + guantes. Todo en muy buen estado, una temporada de uso. Me voy del país y no puedo llevarlo.',
-        city: 'Queenstown',
+          'Colombiano, trabajo en IT, busco habitación desde agosto. Soy ordenado, tranquilo, full-time. Prefiero cerca del CBD o Newtown. No fumo. Tengo buenas referencias.',
+        city: 'Wellington',
         price: 350,
+        currency: 'NZD',
         images: [],
-        metadata: { categoria: 'camping', condicion: 'buen estado' },
+        contactInfo: 'andres.garcia@test.com',
+        metadata: { type: 'busqueda', available: future(25).toISOString() },
+        createdAt: days(2),
       },
-      {
-        userId: maria.id,
-        module: PostModule.MARKETPLACE,
-        title: 'Vendo bicicleta de ciudad — Wellington',
-        description:
-          'Trek FX3 2022, 7 velocidades, talla M. Ideal para commuting por Wellington. Con luces y candado incluidos. Me compré auto.',
-        city: 'Wellington',
-        price: 420,
-        images: [],
-        metadata: { categoria: 'vehículos', condicion: 'buen estado' },
-      },
-      {
-        userId: ana.id,
-        module: PostModule.MARKETPLACE,
-        title: 'Libros de enfermería + medicina NZ (en inglés)',
-        description:
-          'Lote de 6 libros de enfermería y farmacología usados en mis estudios. Muy útiles para convalidar título en NZ. Precio por el lote.',
-        city: 'Hamilton',
-        price: 80,
-        images: [],
-        metadata: { categoria: 'libros', condicion: 'usado' },
-      },
-    ],
-  });
+    }),
+  ]);
 
-  // ── Posts: Comunidad ─────────────────────────────────────────────────────
-  await prisma.post.createMany({
-    data: [
-      {
-        userId: carlos.id,
-        module: PostModule.COMMUNITY,
-        title: '¿Cómo renovar el visa de trabajo en NZ? Guía 2026',
+  // ─── JOBS ─────────────────────────────────────────────────────────────────
+  console.log('💼 Jobs...');
+
+  const [, postJ2, postJ3] = await Promise.all([
+    prisma.post.create({
+      data: {
+        userId: rodrigo.id,
+        module: PostModule.JOBS,
+        title: 'Ayudante de construcción – Christchurch – $22/hora',
         description:
-          'Comparto mi experiencia renovando el Open Work Visa este año. El proceso cambió bastante desde 2024. Pregunten lo que necesiten, con gusto ayudo.',
+          'Empresa familiar busca ayudante para obras menores, pintura y reparaciones. No se necesita experiencia, se enseña. Lunes a viernes 7am–4pm. Transporte propio requerido.',
+        city: 'Christchurch',
+        price: 22,
+        currency: 'NZD',
+        images: [],
+        contactInfo: '+64 27 987 6543',
+        metadata: { type: 'oferta', hours: 'full-time' },
+        createdAt: days(7),
+      },
+    }),
+    prisma.post.create({
+      data: {
+        userId: sofia.id,
+        module: PostModule.JOBS,
+        title: 'Clases de español – presencial y online – Hamilton',
+        description:
+          'Profesora argentina con título universitario. Todos los niveles, individuales o grupales. $40/hora individual, $25/persona en grupos. También preparo para exámenes DELE.',
+        city: 'Hamilton',
+        price: 40,
+        currency: 'NZD',
+        images: [],
+        contactInfo: 'sofia.mendoza@test.com',
+        metadata: { type: 'oferta', modality: 'presencial y online' },
+        createdAt: days(4),
+      },
+    }),
+    prisma.post.create({
+      data: {
+        userId: luis.id,
+        module: PostModule.JOBS,
+        title: 'Busco trabajo en gastronomía – chef con visa y experiencia',
+        description:
+          'Chef con 8 años de experiencia en cocina latinoamericana y fusión. Open work visa válida hasta 2027. Disponible de inmediato. Puntual, responsable, con referencias.',
+        city: 'Tauranga',
+        price: null,
+        currency: 'NZD',
+        images: [],
+        contactInfo: 'luis.herrera@test.com',
+        metadata: { type: 'busqueda', visa: 'open work', experience: '8 años' },
+        createdAt: days(6),
+      },
+    }),
+  ]);
+
+  // ─── MARKETPLACE ──────────────────────────────────────────────────────────
+  console.log('🛒 Marketplace...');
+
+  const [postM1, postM2] = await Promise.all([
+    prisma.post.create({
+      data: {
+        userId: camila.id,
+        module: PostModule.MARKETPLACE,
+        title: 'Bicicleta Trek Marlin 5 – excelente estado – $450',
+        description:
+          'Trek Marlin 5, talla M, 21 velocidades, frenos de disco. 1 año de uso. Incluye casco, luces y candado. Precio negociable. Retiro en Auckland Central.',
         city: 'Auckland',
+        price: 450,
+        currency: 'NZD',
         images: [],
+        contactInfo: 'Mensaje por la app',
+        metadata: { category: 'deportes', condition: 'excelente', brand: 'Trek' },
+        createdAt: days(2),
       },
-      {
-        userId: ana.id,
-        module: PostModule.COMMUNITY,
-        title: 'Grupo de senderismo latinos en Waikato — ¡Únete!',
+    }),
+    prisma.post.create({
+      data: {
+        userId: andres.id,
+        module: PostModule.MARKETPLACE,
+        title: 'iPhone 13 Pro 256GB Space Grey – $900',
         description:
-          'Organizamos caminatas cada tercer domingo. Próxima salida: Raglan Beach el 15 de junio. Todos los niveles bienvenidos. Familia también.',
-        city: 'Hamilton',
+          'Estado 9/10, pantalla perfecta, batería al 91%. Con cargador original y funda. Desbloqueado. No cambios, solo venta.',
+        city: 'Wellington',
+        price: 900,
+        currency: 'NZD',
         images: [],
+        contactInfo: 'WhatsApp +64 21 555 7890',
+        metadata: { category: 'tecnología', condition: '9/10', brand: 'Apple' },
+        createdAt: days(1),
       },
-    ],
-  });
+    }),
+    prisma.post.create({
+      data: {
+        userId: valentina.id,
+        module: PostModule.MARKETPLACE,
+        title: 'Muebles de living completo – vendo por mudanza',
+        description:
+          'Sofá 3 cuerpos, mesa de comedor + 4 sillas, escritorio y estantería. Todo por $450 o por piezas. Buen estado. Solo retiro en Grey Lynn, Auckland.',
+        city: 'Auckland',
+        price: 450,
+        currency: 'NZD',
+        images: [],
+        contactInfo: 'Mensaje aquí',
+        metadata: { category: 'muebles', condition: 'buen estado' },
+        createdAt: days(1),
+      },
+    }),
+  ]);
 
-  // ── Trips ────────────────────────────────────────────────────────────────
-  const trip1 = await prisma.trip.create({
-    data: {
-      userId: juan.id,
-      origin: 'Christchurch',
-      destination: 'Queenstown',
-      departureDate: new Date('2026-06-15T08:00:00Z'),
-      seatsTotal: 3,
-      seatsAvailable: 2,
-      costPerPerson: 45,
-      notes: 'Salida puntual. Parada en Lake Tekapo para fotos ~30 min. Llevar snacks.',
-    },
-  });
+  // ─── TRIPS (posts) ────────────────────────────────────────────────────────
+  console.log('✈️  Trips...');
 
-  await prisma.trip.create({
-    data: {
-      userId: diego.id,
-      origin: 'Queenstown',
-      destination: 'Auckland',
-      departureDate: new Date('2026-06-20T06:30:00Z'),
-      seatsTotal: 4,
-      seatsAvailable: 3,
-      costPerPerson: 80,
-      notes: 'Vuelo, no auto. Busco gente para compartir taxi al aeropuerto de QT.',
-    },
-  });
+  const [postT1, postT2] = await Promise.all([
+    prisma.post.create({
+      data: {
+        userId: rodrigo.id,
+        module: PostModule.TRIPS,
+        title: `Christchurch → Auckland – ${future(8).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })} – $80`,
+        description:
+          'Salida 6am desde Christchurch Central, llegada estimada 7pm. Toyota Corolla cómodo. Comparto nafta: $80/persona. Quedan 2 plazas.',
+        city: 'Christchurch',
+        price: 80,
+        currency: 'NZD',
+        images: [],
+        contactInfo: 'rodrigo.morales@test.com',
+        metadata: { destination: 'Auckland', seats: 2 },
+        createdAt: days(1),
+      },
+    }),
+    prisma.post.create({
+      data: {
+        userId: sofia.id,
+        module: PostModule.TRIPS,
+        title: `Road trip South Island – 5 días desde ${future(15).toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })}`,
+        description:
+          'Christchurch → Queenstown → Milford Sound → Dunedin. 5 días, aprox. $400/persona (nafta + hostel). Busco 3 personas buena onda.',
+        city: 'Hamilton',
+        price: 400,
+        currency: 'NZD',
+        images: [],
+        contactInfo: 'sofia.mendoza@test.com',
+        metadata: { destination: 'South Island', days: 5, seats: 3 },
+        createdAt: days(2),
+      },
+    }),
+  ]);
 
-  // Reserva de prueba: carlos reserva en el viaje de juan
-  await prisma.tripBooking.create({
-    data: {
-      tripId: trip1.id,
-      userId: carlos.id,
-      seats: 1,
-    },
-  });
+  // ─── COMMUNITY ────────────────────────────────────────────────────────────
+  console.log('🤝 Community...');
 
-  await prisma.trip.update({
-    where: { id: trip1.id },
-    data: { seatsAvailable: trip1.seatsAvailable - 1 },
-  });
+  const [postC1, postC2, postC3] = await Promise.all([
+    prisma.post.create({
+      data: {
+        userId: luis.id,
+        module: PostModule.COMMUNITY,
+        title: '¿Tips para sacar la licencia de conducir en NZ?',
+        description:
+          'Llegué hace 3 meses y quiero sacarme la licencia. Tengo licencia peruana válida. ¿Hay que rendir examen teórico? ¿Cuánto cuesta? ¿Alguien que haya pasado por esto?',
+        city: 'Tauranga',
+        price: null,
+        currency: null,
+        images: [],
+        contactInfo: null,
+        metadata: { topic: 'tramites' },
+        createdAt: days(1),
+      },
+    }),
+    prisma.post.create({
+      data: {
+        userId: camila.id,
+        module: PostModule.COMMUNITY,
+        title: 'Recomendaciones de dentista hispanohablante en Auckland',
+        description:
+          'Necesito una limpieza y revisión. Tengo cobertura del ACC. ¿Alguien conoce un dentista que hable español en Auckland? Me quedaría mucho más cómoda.',
+        city: 'Auckland',
+        price: null,
+        currency: null,
+        images: [],
+        contactInfo: null,
+        metadata: { topic: 'salud' },
+        createdAt: hrs(8),
+      },
+    }),
+    prisma.post.create({
+      data: {
+        userId: andres.id,
+        module: PostModule.COMMUNITY,
+        title: '¡Asado latino este sábado en Wellington – todos invitados!',
+        description:
+          'Waitangi Park, este sábado desde las 12pm. Cada uno trae algo: carne, ensaladas, bebidas. Grupo mixto de colombianos, chilenos y venezolanos. ¡Cuantos más, mejor!',
+        city: 'Wellington',
+        price: null,
+        currency: null,
+        images: [],
+        contactInfo: 'andres.garcia@test.com',
+        metadata: { topic: 'evento', date: future(5).toISOString() },
+        createdAt: hrs(12),
+      },
+    }),
+  ]);
 
-  // ── Mensajes de prueba ───────────────────────────────────────────────────
+  // ─── TRIPS (model) ────────────────────────────────────────────────────────
+  console.log('🚗 Trip model + bookings...');
+
+  const [trip1, trip2] = await Promise.all([
+    prisma.trip.create({
+      data: {
+        userId: rodrigo.id,
+        origin: 'Christchurch',
+        destination: 'Auckland',
+        departureDate: future(8),
+        seatsTotal: 2,
+        seatsAvailable: 1,
+        costPerPerson: 80,
+        currency: 'NZD',
+        notes: 'Toyota Corolla. Salida 6am desde el CBD.',
+        status: TripStatus.OPEN,
+      },
+    }),
+    prisma.trip.create({
+      data: {
+        userId: sofia.id,
+        origin: 'Hamilton',
+        destination: 'South Island',
+        departureDate: future(15),
+        seatsTotal: 3,
+        seatsAvailable: 2,
+        costPerPerson: 400,
+        currency: 'NZD',
+        notes: '5 días. Gastos compartidos: nafta + hostel.',
+        status: TripStatus.OPEN,
+      },
+    }),
+  ]);
+
+  await Promise.all([
+    prisma.tripBooking.create({
+      data: { tripId: trip1.id, userId: luis.id, seats: 1, status: BookingStatus.ACCEPTED },
+    }),
+    prisma.tripBooking.create({
+      data: { tripId: trip2.id, userId: camila.id, seats: 1, status: BookingStatus.PENDING },
+    }),
+    prisma.tripBooking.create({
+      data: { tripId: trip2.id, userId: andres.id, seats: 1, status: BookingStatus.ACCEPTED },
+    }),
+  ]);
+
+  // ─── MESSAGES ─────────────────────────────────────────────────────────────
+  console.log('💬 Mensajes...');
+
+  // Valentina → Camila (habitación)
   await prisma.message.createMany({
     data: [
       {
-        senderId: maria.id,
-        receiverId: carlos.id,
-        content: 'Hola Carlos, ¿la pieza en Auckland sigue disponible?',
+        senderId: valentina.id, receiverId: camila.id, postId: postH1.id,
+        content: 'Hola Camila! Vi tu publicación de la habitación. ¿Sigue disponible?',
+        createdAt: hrs(2), readAt: new Date(now - 2 * 3_600_000 + 30 * 60_000),
       },
       {
-        senderId: carlos.id,
-        receiverId: maria.id,
-        content: 'Sí, todavía está disponible. ¿Cuándo puedes verla?',
+        senderId: camila.id, receiverId: valentina.id, postId: postH1.id,
+        content: 'Hola Vale! Sí, sigue. ¿Me contás un poco de ti? ¿A qué te dedicás?',
+        createdAt: new Date(now - 2 * 3_600_000 + 35 * 60_000),
+        readAt: new Date(now - 2 * 3_600_000 + 70 * 60_000),
       },
       {
-        senderId: maria.id,
-        receiverId: carlos.id,
-        content: 'Este sábado en la tarde me vendría bien. ¿A qué hora te queda bien?',
+        senderId: valentina.id, receiverId: camila.id, postId: postH1.id,
+        content: 'Trabajo en un café en Ponsonby, full-time. Soy tranquila, limpia y sin mascotas. ¿Cuándo podría ver el cuarto?',
+        createdAt: hrs(1), readAt: min(45),
+      },
+      {
+        senderId: camila.id, receiverId: valentina.id,
+        content: '¡Perfecto! ¿Te viene bien este sábado a las 11am?',
+        createdAt: min(30), readAt: null,
       },
     ],
   });
 
-  // ── Resumen ──────────────────────────────────────────────────────────────
-  const counts = await Promise.all([
+  // Luis → Rodrigo (viaje)
+  await prisma.message.createMany({
+    data: [
+      {
+        senderId: luis.id, receiverId: rodrigo.id, postId: postT1.id,
+        content: 'Hola Rodrigo! Vi que hacés viaje a Auckland. ¿Todavía hay lugar?',
+        createdAt: hrs(5), readAt: new Date(now - 5 * 3_600_000 + 20 * 60_000),
+      },
+      {
+        senderId: rodrigo.id, receiverId: luis.id, postId: postT1.id,
+        content: '¡Sí! Queda 1 lugar. ¿Podés salir a las 6am desde el CBD?',
+        createdAt: new Date(now - 5 * 3_600_000 + 25 * 60_000),
+        readAt: new Date(now - 5 * 3_600_000 + 50 * 60_000),
+      },
+      {
+        senderId: luis.id, receiverId: rodrigo.id,
+        content: 'Sí, las 6am me viene bien. ¿Cómo pagamos los $80?',
+        createdAt: hrs(4), readAt: new Date(now - 4 * 3_600_000 + 30 * 60_000),
+      },
+      {
+        senderId: rodrigo.id, receiverId: luis.id,
+        content: 'Bank transfer o cash al llegar. Te mando las coordenadas del punto de encuentro.',
+        createdAt: new Date(now - 4 * 3_600_000 + 35 * 60_000),
+        readAt: new Date(now - 4 * 3_600_000 + 60 * 60_000),
+      },
+      {
+        senderId: luis.id, receiverId: rodrigo.id,
+        content: 'Banco transfer mejor. ¡Gracias hermano, nos vemos ese día! 🤝',
+        createdAt: hrs(3), readAt: new Date(now - 3 * 3_600_000 + 15 * 60_000),
+      },
+    ],
+  });
+
+  // Sofía → Luis (trabajo)
+  await prisma.message.createMany({
+    data: [
+      {
+        senderId: sofia.id, receiverId: luis.id, postId: postJ3.id,
+        content: 'Hola Luis! Tengo un amigo con restaurante de fusión latina en Hamilton que busca chef. ¿Te interesaría?',
+        createdAt: days(1), readAt: new Date(now - 86_400_000 + 3_600_000),
+      },
+      {
+        senderId: luis.id, receiverId: sofia.id, postId: postJ3.id,
+        content: '¡Claro que me interesa! ¿Qué tipo de cocina hace?',
+        createdAt: new Date(now - 86_400_000 + 3_900_000),
+        readAt: new Date(now - 86_400_000 + 7_200_000),
+      },
+      {
+        senderId: sofia.id, receiverId: luis.id,
+        content: 'Fusión latinoamericana, en Hamilton central. Le puedo pasar tu contacto si querés.',
+        createdAt: new Date(now - 86_400_000 + 9_000_000),
+        readAt: new Date(now - 86_400_000 + 10_800_000),
+      },
+      {
+        senderId: luis.id, receiverId: sofia.id,
+        content: '¡Dale! Muchas gracias Sofía, la comunidad latina es lo mejor 🙌',
+        createdAt: new Date(now - 86_400_000 + 12_600_000),
+        readAt: null,
+      },
+    ],
+  });
+
+  // Camila → Andrés (asado)
+  await prisma.message.createMany({
+    data: [
+      {
+        senderId: camila.id, receiverId: andres.id, postId: postC3.id,
+        content: '¡Me apunto al asado! Llevo ensalada de quinoa y bebidas. ¿Cuántos van?',
+        createdAt: hrs(6), readAt: new Date(now - 6 * 3_600_000 + 30 * 60_000),
+      },
+      {
+        senderId: andres.id, receiverId: camila.id, postId: postC3.id,
+        content: '¡Genial Camila! Somos como 10 confirmados. Va a ser épico 🔥',
+        createdAt: new Date(now - 6 * 3_600_000 + 40 * 60_000),
+        readAt: new Date(now - 6 * 3_600_000 + 70 * 60_000),
+      },
+    ],
+  });
+
+  // ─── LIKES ────────────────────────────────────────────────────────────────
+  console.log('❤️  Likes...');
+
+  await prisma.postLike.createMany({
+    data: [
+      { postId: postC3.id, userId: camila.id },
+      { postId: postC3.id, userId: valentina.id },
+      { postId: postC3.id, userId: luis.id },
+      { postId: postC3.id, userId: rodrigo.id },
+      { postId: postC1.id, userId: camila.id },
+      { postId: postC1.id, userId: andres.id },
+      { postId: postC1.id, userId: sofia.id },
+      { postId: postC2.id, userId: valentina.id },
+      { postId: postC2.id, userId: andres.id },
+      { postId: postJ2.id, userId: camila.id },
+      { postId: postJ2.id, userId: rodrigo.id },
+      { postId: postJ3.id, userId: sofia.id },
+      { postId: postJ3.id, userId: camila.id },
+      { postId: postH1.id, userId: andres.id },
+      { postId: postH1.id, userId: rodrigo.id },
+      { postId: postM1.id, userId: andres.id },
+      { postId: postM1.id, userId: luis.id },
+      { postId: postM2.id, userId: camila.id },
+      { postId: postM2.id, userId: valentina.id },
+      { postId: postT1.id, userId: camila.id },
+      { postId: postT1.id, userId: andres.id },
+      { postId: postT2.id, userId: valentina.id },
+      { postId: postT2.id, userId: luis.id },
+    ],
+  });
+
+  // ─── SAVES ────────────────────────────────────────────────────────────────
+  console.log('🔖 Guardados...');
+
+  await prisma.savedPost.createMany({
+    data: [
+      { postId: postH1.id, userId: andres.id },
+      { postId: postH1.id, userId: rodrigo.id },
+      { postId: postH3.id, userId: luis.id },
+      { postId: postJ2.id, userId: rodrigo.id },
+      { postId: postJ3.id, userId: sofia.id },
+      { postId: postM1.id, userId: andres.id },
+      { postId: postM2.id, userId: valentina.id },
+      { postId: postT1.id, userId: camila.id },
+      { postId: postT2.id, userId: andres.id },
+      { postId: postC3.id, userId: rodrigo.id },
+    ],
+  });
+
+  // ─── COMMENTS ─────────────────────────────────────────────────────────────
+  console.log('💬 Comentarios...');
+
+  await prisma.comment.createMany({
+    data: [
+      {
+        postId: postC1.id, userId: sofia.id,
+        content: 'Con licencia latinoamericana podés conducir hasta 12 meses. Después hay que rendir teórico ($53.30) y práctico. El libro "Road Code" de NZTA es esencial.',
+        createdAt: hrs(3),
+      },
+      {
+        postId: postC1.id, userId: andres.id,
+        content: 'Confirmo lo de Sofía. El examen teórico está en español en la web de NZTA, eso ayuda muchísimo.',
+        createdAt: new Date(now - 3 * 3_600_000 + 30 * 60_000),
+      },
+      {
+        postId: postC1.id, userId: luis.id,
+        content: '¡Gracias a los dos! Justo lo que necesitaba. Voy a buscar el libro 🙏',
+        createdAt: hrs(2),
+      },
+      {
+        postId: postC2.id, userId: valentina.id,
+        content: 'Hay una dentista venezolana en Ponsonby, Dra. Martínez. Habla español perfecto. Te mando el número por privado.',
+        createdAt: hrs(1),
+      },
+      {
+        postId: postC2.id, userId: rodrigo.id,
+        content: 'En Christchurch hay una clínica con dentistas latinos también. Busca "Latam Dental Christchurch".',
+        createdAt: min(45),
+      },
+      {
+        postId: postC3.id, userId: valentina.id,
+        content: '¡Me apunto! Llevo arepas venezolanas 🇻🇪',
+        createdAt: hrs(4),
+      },
+      {
+        postId: postC3.id, userId: rodrigo.id,
+        content: 'Ojalá pudiera ir, estoy en Chch ese día. Para el próximo avisadme con tiempo! 🤙',
+        createdAt: hrs(3),
+      },
+      {
+        postId: postC3.id, userId: luis.id,
+        content: 'Me sumo! Llevo ceviche y causa limeña 🇵🇪',
+        createdAt: hrs(2),
+      },
+      {
+        postId: postJ2.id, userId: camila.id,
+        content: '¿Dás clases a adultos sin conocimiento previo? Tengo una amiga kiwi que quiere aprender español.',
+        createdAt: hrs(5),
+      },
+      {
+        postId: postJ2.id, userId: sofia.id,
+        content: '¡Claro que sí Camila! Mándame un mensaje y coordinamos 😊',
+        createdAt: new Date(now - 5 * 3_600_000 + 30 * 60_000),
+      },
+    ],
+  });
+
+  // ─── RESUMEN ──────────────────────────────────────────────────────────────
+  const [users, posts, trips, messages, likes, saves, comments] = await Promise.all([
     prisma.user.count(),
     prisma.post.count(),
     prisma.trip.count(),
     prisma.message.count(),
+    prisma.postLike.count(),
+    prisma.savedPost.count(),
+    prisma.comment.count(),
   ]);
 
-  console.log('\n📊 Resumen del seed:');
-  console.log(`   👤 Usuarios:      ${counts[0]}`);
-  console.log(`   📋 Publicaciones: ${counts[1]}`);
-  console.log(`   🚗 Viajes:        ${counts[2]}`);
-  console.log(`   💬 Mensajes:      ${counts[3]}`);
-  console.log('\n🔑 Credenciales de prueba (todos con la misma contraseña):');
-  console.log(`   Contraseña: ${TEST_PASSWORD}`);
-  console.log('   carlos@kiwilatino.test  — Auckland  (Chile)');
-  console.log('   maria@kiwilatino.test   — Wellington (Colombia)');
-  console.log('   juan@kiwilatino.test    — Christchurch (México)');
-  console.log('   ana@kiwilatino.test     — Hamilton  (Argentina)');
-  console.log('   diego@kiwilatino.test   — Queenstown (Venezuela)');
-  console.log('\n✅ Seed completado.\n');
+  console.log('\n✅ Seed completado!\n');
+  console.log('👤 Usuarios (contraseña: Test1234!):');
+  console.log('   camila.torres@test.com    — Auckland      (Chile)');
+  console.log('   andres.garcia@test.com    — Wellington    (Colombia)');
+  console.log('   valentina.perez@test.com  — Auckland      (Venezuela)');
+  console.log('   rodrigo.morales@test.com  — Christchurch  (México)');
+  console.log('   sofia.mendoza@test.com    — Hamilton      (Argentina)');
+  console.log('   luis.herrera@test.com     — Tauranga      (Perú)');
+  console.log(`\n📦 Posts: ${posts}  🚗 Trips: ${trips}  💬 Mensajes: ${messages}`);
+  console.log(`❤️  Likes: ${likes}  🔖 Saves: ${saves}  💬 Comentarios: ${comments}`);
+  console.log(`👤 Usuarios: ${users}\n`);
 }
 
 main()
@@ -299,4 +668,7 @@ main()
     console.error('❌ Error en seed:', e);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+    await pool.end();
+  });
