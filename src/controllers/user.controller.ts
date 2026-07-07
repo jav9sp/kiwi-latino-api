@@ -136,3 +136,28 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 
   sendSuccess(res, user);
 };
+
+// GET /api/users/me/onboarding
+export const getOnboarding = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.userId!;
+
+  const [userData, postCount, messageCount, likeCount, savedCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarUrl: true, bio: true },
+    }),
+    prisma.post.count({ where: { userId, status: { not: 'DELETED' } } }),
+    prisma.message.count({ where: { senderId: userId } }),
+    prisma.postLike.count({ where: { userId } }),
+    prisma.savedPost.count({ where: { userId } }),
+  ]);
+
+  sendSuccess(res, {
+    avatar:  !!userData?.avatarUrl,
+    bio:     !!(userData?.bio?.trim()),
+    post:    postCount > 0,
+    message: messageCount > 0,
+    like:    likeCount > 0,
+    saved:   savedCount > 0,
+  });
+};
