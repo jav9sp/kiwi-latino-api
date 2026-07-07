@@ -3,22 +3,39 @@ import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { AuthenticatedRequest } from '../types';
 
-export const getStats = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+async function assertAdmin(req: AuthenticatedRequest, res: Response): Promise<boolean> {
   const adminEmail = process.env.ADMIN_EMAIL;
   if (!adminEmail) {
     sendError(res, 'Panel de administrador no configurado', 403);
-    return;
+    return false;
   }
-
   const user = await prisma.user.findUnique({
     where: { id: req.userId! },
     select: { email: true },
   });
-
   if (!user || user.email !== adminEmail) {
     sendError(res, 'Acceso denegado', 403);
-    return;
+    return false;
   }
+  return true;
+}
+
+export const getUsers = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  if (!(await assertAdmin(req, res))) return;
+
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true, name: true, email: true,
+      avatarUrl: true, countryOrigin: true, cityNz: true, createdAt: true,
+    },
+  });
+
+  sendSuccess(res, users);
+};
+
+export const getStats = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  if (!(await assertAdmin(req, res))) return;
 
   const weekAgo  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000);
   const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
