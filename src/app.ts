@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 
 import authRoutes from './routes/auth.routes';
 import postRoutes from './routes/post.routes';
@@ -51,6 +52,11 @@ app.use('/api/', limiter);
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Serve local uploads in dev
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
+}
 
 // Routes
 app.use('/api/auth', authRoutes);

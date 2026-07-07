@@ -51,7 +51,7 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
     city,
     minPrice,
     maxPrice,
-    tipoAlojamiento,
+    housingTipo,
     disponibleDesde,
     tipoTrabajo,
     categoria,
@@ -72,10 +72,10 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
     if (maxPrice) where.price.lte = parseFloat(maxPrice);
   }
 
-  // Housing-specific metadata filters (PostgreSQL JSON path queries)
+  // Module-specific metadata filters (PostgreSQL JSON path queries)
   const metaConditions: object[] = [];
-  if (tipoAlojamiento) {
-    metaConditions.push({ metadata: { path: ['tipo'], equals: tipoAlojamiento } });
+  if (housingTipo) {
+    metaConditions.push({ metadata: { path: ['tipo'], equals: housingTipo } });
   }
   if (disponibleDesde) {
     metaConditions.push({ metadata: { path: ['disponibleDesde'], gte: disponibleDesde } });
