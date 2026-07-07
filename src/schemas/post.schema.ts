@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const POST_MODULES = ['HOUSING', 'JOBS', 'MARKETPLACE', 'TRIPS', 'COMMUNITY'] as const;
-const HOUSING_TIPOS = ['pieza', 'casa', 'carpa', 'cabaña'] as const;
+const HOUSING_INTENCION = ['busqueda', 'oferta'] as const;
 const JOBS_TIPOS = ['farm', 'hostelería', 'construcción', 'retail', 'otro'] as const;
 const JOBS_SALARIO_TIPO = ['hora', 'semana', 'quincena', 'mes'] as const;
 const JOBS_NIVEL_INGLES = ['ninguno', 'básico', 'intermedio', 'avanzado'] as const;
@@ -11,17 +11,20 @@ const MARKETPLACE_CATEGORIAS = [
 ] as const;
 const MARKETPLACE_CONDICIONES = ['nuevo', 'buen estado', 'usado'] as const;
 
-const housingMetadataSchema = z.object({
-  tipo: z.enum(HOUSING_TIPOS, {
-    errorMap: () => ({ message: 'Tipo inválido. Opciones: pieza, casa, carpa, cabaña' }),
+const housingMetadataSchema = z.discriminatedUnion('tipo', [
+  z.object({ tipo: z.literal('busqueda') }),
+  z.object({
+    tipo: z.literal('oferta'),
+    bills: z.enum(['incluidas', 'no incluidas']).optional(),
+    bano: z.enum(['independiente', 'compartido']).optional(),
+    estacionamiento: z.boolean().optional(),
+    habitacion: z.enum(['single', 'compartida']).optional(),
+    disponibleDesde: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')
+      .optional(),
   }),
-  amueblado: z.boolean().optional(),
-  serviciosIncluidos: z.boolean().optional(),
-  disponibleDesde: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')
-    .optional(),
-});
+]);
 
 const marketplaceMetadataSchema = z.object({
   categoria: z.enum(MARKETPLACE_CATEGORIAS, {
@@ -71,7 +74,7 @@ export const createPostSchema = z.object({
         if (!result.success) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: result.error.errors[0]?.message ?? 'Datos del alojamiento inválidos',
+            message: result.error.errors[0]?.message ?? 'Debes indicar si buscas u ofreces arriendo',
             path: ['metadata'],
           });
         }
@@ -135,7 +138,7 @@ export const listPostsSchema = z.object({
     page: z.string().regex(/^\d+$/, 'page inválido').optional(),
     limit: z.string().regex(/^\d+$/, 'limit inválido').optional(),
     // Housing specific
-    tipoAlojamiento: z.enum(HOUSING_TIPOS).optional(),
+    housingTipo: z.enum(HOUSING_INTENCION).optional(),
     disponibleDesde: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'disponibleDesde inválido')
