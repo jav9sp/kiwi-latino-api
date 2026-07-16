@@ -4,22 +4,21 @@ import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { AuthenticatedRequest } from '../types';
 
+const USER_SELF_SELECT = {
+  id: true, email: true, name: true,
+  countryOrigin: true, cityNz: true, avatarUrl: true,
+  bio: true, oficio: true, descripcionServicio: true,
+  contactoDirectorio: true, instagram: true, tiktok: true, facebook: true,
+  createdAt: true,
+} as const;
+
 // GET /api/users/me
 export const getMe = async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthenticatedRequest).userId!;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      countryOrigin: true,
-      cityNz: true,
-      avatarUrl: true,
-      bio: true,
-      createdAt: true,
-    },
+    select: USER_SELF_SELECT,
   });
 
   if (!user) {
@@ -33,33 +32,30 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
 // PATCH /api/users/me
 export const updateMe = async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthenticatedRequest).userId!;
-  const { name, countryOrigin, cityNz, bio, avatarUrl } = req.body as {
-    name?: string;
-    countryOrigin?: string;
-    cityNz?: string;
-    bio?: string;
-    avatarUrl?: string;
+  const { name, countryOrigin, cityNz, bio, avatarUrl, oficio, descripcionServicio, contactoDirectorio, instagram, tiktok, facebook } = req.body as {
+    name?: string; countryOrigin?: string; cityNz?: string;
+    bio?: string; avatarUrl?: string;
+    oficio?: string | null; descripcionServicio?: string | null;
+    contactoDirectorio?: string | null; instagram?: string | null;
+    tiktok?: string | null; facebook?: string | null;
   };
 
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
-      ...(name !== undefined && { name: name.trim() }),
-      ...(countryOrigin !== undefined && { countryOrigin }),
-      ...(cityNz !== undefined && { cityNz }),
-      ...(bio !== undefined && { bio }),
-      ...(avatarUrl !== undefined && { avatarUrl }),
+      ...(name                !== undefined && { name: name.trim() }),
+      ...(countryOrigin       !== undefined && { countryOrigin }),
+      ...(cityNz              !== undefined && { cityNz }),
+      ...(bio                 !== undefined && { bio }),
+      ...(avatarUrl           !== undefined && { avatarUrl }),
+      ...(oficio              !== undefined && { oficio }),
+      ...(descripcionServicio !== undefined && { descripcionServicio }),
+      ...(contactoDirectorio  !== undefined && { contactoDirectorio }),
+      ...(instagram           !== undefined && { instagram }),
+      ...(tiktok              !== undefined && { tiktok }),
+      ...(facebook            !== undefined && { facebook }),
     },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      countryOrigin: true,
-      cityNz: true,
-      avatarUrl: true,
-      bio: true,
-      createdAt: true,
-    },
+    select: USER_SELF_SELECT,
   });
 
   sendSuccess(res, user, 200, 'Perfil actualizado');
@@ -160,4 +156,26 @@ export const getOnboarding = async (req: AuthenticatedRequest, res: Response): P
     like:    likeCount > 0,
     saved:   savedCount > 0,
   });
+};
+
+// GET /api/users/directorio
+export const getDirectorio = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const { oficio, city } = req.query as { oficio?: string; city?: string };
+
+  const users = await prisma.user.findMany({
+    where: {
+      oficio: { not: null },
+      ...(oficio && { oficio }),
+      ...(city   && { cityNz: city }),
+    },
+    select: {
+      id: true, name: true, avatarUrl: true,
+      oficio: true, descripcionServicio: true,
+      contactoDirectorio: true, instagram: true, tiktok: true, facebook: true,
+      cityNz: true, countryOrigin: true,
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  sendSuccess(res, users);
 };
