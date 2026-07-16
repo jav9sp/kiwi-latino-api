@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getMe, updateMe, changePassword, getUserById, getOnboarding } from '../controllers/user.controller';
+import { getMe, updateMe, changePassword, getUserById, getOnboarding, getDirectorio } from '../controllers/user.controller';
 import { getSavedPosts } from '../controllers/save.controller';
 import { savePushToken } from '../controllers/push.controller';
 import { authenticate } from '../middlewares/auth.middleware';
@@ -12,6 +12,7 @@ const router = Router();
 
 router.get('/me', authenticate, asyncHandler(getMe));
 router.get('/me/onboarding', authenticate, asyncHandler(getOnboarding));
+router.get('/directorio', authenticate, asyncHandler(getDirectorio));
 router.get('/me/saved-posts', authenticate, asyncHandler(getSavedPosts));
 router.patch('/me', authenticate, validate(updateProfileSchema), asyncHandler(updateMe));
 router.patch('/me/password', authenticate, validate(changePasswordSchema), asyncHandler(changePassword));
