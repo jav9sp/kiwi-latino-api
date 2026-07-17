@@ -44,6 +44,7 @@ model User {
   bio           String?
   oficio              String?
   descripcionServicio String?
+  imagenOficio        String?
   contactoDirectorio  String?
   instagram           String?
   tiktok              String?

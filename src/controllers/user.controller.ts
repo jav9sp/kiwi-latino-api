@@ -7,7 +7,7 @@ import { AuthenticatedRequest } from '../types';
 const USER_SELF_SELECT = {
   id: true, email: true, name: true,
   countryOrigin: true, cityNz: true, avatarUrl: true,
-  bio: true, oficio: true, descripcionServicio: true,
+  bio: true, oficio: true, descripcionServicio: true, imagenOficio: true,
   contactoDirectorio: true, instagram: true, tiktok: true, facebook: true,
   createdAt: true,
 } as const;
@@ -32,10 +32,10 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
 // PATCH /api/users/me
 export const updateMe = async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthenticatedRequest).userId!;
-  const { name, countryOrigin, cityNz, bio, avatarUrl, oficio, descripcionServicio, contactoDirectorio, instagram, tiktok, facebook } = req.body as {
+  const { name, countryOrigin, cityNz, bio, avatarUrl, oficio, descripcionServicio, imagenOficio, contactoDirectorio, instagram, tiktok, facebook } = req.body as {
     name?: string; countryOrigin?: string; cityNz?: string;
     bio?: string; avatarUrl?: string;
-    oficio?: string | null; descripcionServicio?: string | null;
+    oficio?: string | null; descripcionServicio?: string | null; imagenOficio?: string | null;
     contactoDirectorio?: string | null; instagram?: string | null;
     tiktok?: string | null; facebook?: string | null;
   };
@@ -50,6 +50,7 @@ export const updateMe = async (req: Request, res: Response): Promise<void> => {
       ...(avatarUrl           !== undefined && { avatarUrl }),
       ...(oficio              !== undefined && { oficio }),
       ...(descripcionServicio !== undefined && { descripcionServicio }),
+      ...(imagenOficio        !== undefined && { imagenOficio }),
       ...(contactoDirectorio  !== undefined && { contactoDirectorio }),
       ...(instagram           !== undefined && { instagram }),
       ...(tiktok              !== undefined && { tiktok }),
@@ -170,7 +171,7 @@ export const getDirectorio = async (req: AuthenticatedRequest, res: Response): P
     },
     select: {
       id: true, name: true, avatarUrl: true,
-      oficio: true, descripcionServicio: true,
+      oficio: true, descripcionServicio: true, imagenOficio: true,
       contactoDirectorio: true, instagram: true, tiktok: true, facebook: true,
       cityNz: true, countryOrigin: true,
     },
