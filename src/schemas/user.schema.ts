@@ -31,6 +31,7 @@ export const updateProfileSchema = z.object({
     avatarUrl:          z.string().url('URL de avatar inválida').optional(),
     oficio:              z.enum(OFICIOS).nullable().optional(),
     descripcionServicio: z.string().max(300).nullable().optional(),
+    imagenOficio:        z.string().url().nullable().optional(),
     contactoDirectorio:  z.string().max(150).nullable().optional(),
     instagram:           z.string().max(100).nullable().optional(),
     tiktok:              z.string().max(100).nullable().optional(),
