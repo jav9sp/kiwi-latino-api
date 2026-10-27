@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { PostModule, PostStatus } from '@prisma/client';
+import { PostModule, PostStatus, PlaceCategory } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 import { sendPushNotifications } from '../utils/push';
@@ -17,6 +17,7 @@ export const POST_BASE_SELECT = {
   status: true,
   contactInfo: true,
   metadata: true,
+  category: true,
   createdAt: true,
   updatedAt: true,
   userId: true,
@@ -56,6 +57,7 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
     tipoTrabajo,
     categoria,
     condicion,
+    category,
   } = req.query as Record<string, string | undefined>;
   const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
   const limit = Math.min(50, Math.max(1, parseInt((req.query.limit as string) || '10', 10)));
@@ -66,6 +68,7 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
 
   if (module) where.module = module as PostModule;
   if (city) where.city = city;
+  if (category) where.category = category as PlaceCategory;
   if (minPrice || maxPrice) {
     where.price = {};
     if (minPrice) where.price.gte = parseFloat(minPrice);
@@ -116,7 +119,7 @@ export const getPosts = async (req: AuthenticatedRequest, res: Response): Promis
 };
 
 export const createPost = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { module, title, description, city, price, currency, images, contactInfo, metadata } = req.body;
+  const { module, title, description, city, price, currency, images, contactInfo, metadata, category } = req.body;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const post = await prisma.post.create({
@@ -131,6 +134,7 @@ export const createPost = async (req: AuthenticatedRequest, res: Response): Prom
       images: images ?? [],
       ...(contactInfo !== undefined && { contactInfo }),
       ...(metadata !== undefined && { metadata }),
+      ...(category !== undefined && { category }),
     },
     select: POST_BASE_SELECT,
   });

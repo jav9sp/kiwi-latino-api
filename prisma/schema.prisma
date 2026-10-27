@@ -12,6 +12,17 @@ enum PostModule {
   MARKETPLACE
   TRIPS
   COMMUNITY
+  PLACES
+}
+
+enum PlaceCategory {
+  ALOJAMIENTO
+  RESTORAN
+  CAFE
+  LUGAR_TURISTICO
+  TIENDA
+  EVENTO
+  OTRO
 }
 
 enum PostStatus {
@@ -84,6 +95,7 @@ model Post {
   status      PostStatus @default(ACTIVE)
   contactInfo String?
   metadata    Json?
+  category    PlaceCategory?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -95,6 +107,7 @@ model Post {
   saves    SavedPost[]
 
   @@index([module, city, status])
+  @@index([module, category])
   @@index([status, createdAt(sort: Desc)])
   @@index([userId])
   @@map("posts")

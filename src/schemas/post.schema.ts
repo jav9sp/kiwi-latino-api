@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
-const POST_MODULES = ['HOUSING', 'JOBS', 'MARKETPLACE', 'TRIPS', 'COMMUNITY'] as const;
+const POST_MODULES = ['HOUSING', 'JOBS', 'MARKETPLACE', 'TRIPS', 'COMMUNITY', 'PLACES'] as const;
+const PLACE_CATEGORIES = [
+  'ALOJAMIENTO', 'RESTORAN', 'CAFE', 'LUGAR_TURISTICO', 'TIENDA', 'EVENTO', 'OTRO',
+] as const;
 const HOUSING_INTENCION = ['busqueda', 'oferta'] as const;
 const JOBS_TIPOS = ['farm', 'hostelería', 'construcción', 'retail', 'otro'] as const;
 const JOBS_SALARIO_TIPO = ['hora', 'semana', 'quincena', 'mes'] as const;
@@ -67,8 +70,18 @@ export const createPostSchema = z.object({
         .optional(),
       contactInfo: z.string().max(200).optional(),
       metadata: z.record(z.unknown()).optional(),
+      category: z.enum(PLACE_CATEGORIES, {
+        errorMap: () => ({ message: 'Categoría de lugar inválida' }),
+      }).optional(),
     })
     .superRefine((data, ctx) => {
+      if (data.module === 'PLACES' && !data.category) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Debes seleccionar una categoría',
+          path: ['category'],
+        });
+      }
       if (data.module === 'HOUSING') {
         const result = housingMetadataSchema.safeParse(data.metadata);
         if (!result.success) {
@@ -113,6 +126,7 @@ export const updatePostSchema = z.object({
       images: z.array(z.string().url()).max(4).optional(),
       contactInfo: z.string().max(200).optional(),
       metadata: z.record(z.unknown()).optional(),
+      category: z.enum(PLACE_CATEGORIES).optional(),
       status: z
         .enum(['ACTIVE', 'CLOSED'], { errorMap: () => ({ message: 'Estado inválido' }) })
         .optional(),
@@ -148,6 +162,8 @@ export const listPostsSchema = z.object({
     // Marketplace specific
     categoria: z.enum(MARKETPLACE_CATEGORIAS).optional(),
     condicion: z.enum(MARKETPLACE_CONDICIONES).optional(),
+    // Places specific
+    category: z.enum(PLACE_CATEGORIES).optional(),
   }),
 });
 
